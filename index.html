@@ -223,6 +223,7 @@ input[type=color]{width:28px;height:28px;border:1px solid #DDD;border-radius:5px
           <div class="fg"><lab>Formats rapides</lab><div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:4px">
             <button class="psetbtn" onclick="setDims(62,100)">62×100</button>
             <button class="psetbtn" onclick="setDims(100,62)">100×62</button>
+            <button class="psetbtn" onclick="setDims(62,29)">62×29</button>
             <button class="psetbtn" onclick="setDims(50,80)">50×80</button>
             <button class="psetbtn" onclick="setDims(70,50)">70×50</button>
             <button class="psetbtn" onclick="setDims(40,60)">40×60</button>
@@ -911,7 +912,8 @@ async function exportPNG(){
   a.href=oc.toDataURL('image/png',1);a.click();
 }
 async function exportBrother(){
-  const W=gn('dim-w'),H=gn('dim-h'),SC=300/25.4;
+  // Format fixe 62×29mm pour les étiquettes derrière les impressions QL-820NWB
+  const W=62, H=29, SC=300/25.4;
   const pxW=Math.round(W*SC),pxH=Math.round(H*SC);
   const cc=await buildCanvas(pxW,pxH);
 
@@ -935,7 +937,7 @@ async function exportBrother(){
     for(let x=0;x<pxW;x++){
       const idx=y*pxW+x;
       const old=gray[idx];
-      const nw=old<128?0:255;
+      const nw=old<180?0:255;
       const err=old-nw;
       gray[idx]=nw;
       if(x+1<pxW)             gray[idx+1]       += err*7/16;
@@ -949,7 +951,7 @@ async function exportBrother(){
 
   // Réécrire les pixels
   for(let i=0;i<pxW*pxH;i++){
-    const v=gray[i]<128?0:255;
+    const v=gray[i]<180?0:255;
     d[i*4]=d[i*4+1]=d[i*4+2]=v;
     d[i*4+3]=255;
   }
