@@ -426,16 +426,6 @@ const DEFAULT_CATS = [
     'txt-qt':'x 12','lbl-qt':'Qté par caisse','font-qt':"'Lato', sans-serif",'sz-qt':14,'col-qt-bg':'#1a1a18','col-qt-tx':'#F2F0EB','op-qt':100,'x-qt':50,'y-qt':88,
     'img-sz':65,'img-op':90,'img-x':50,'img-y':32,'img-ro':0
   }},
-  {id:'format62', name:'62', icon:'🏷', orient:'h', defaults:{
-    'dim-w':62,'dim-h':29,
-    'col-bg':'#ffffff',
-    'font-co':"'Playfair Display', serif",'sz-co':6,'ls-co':1,'op-co':100,'x-co':50,'y-co':8,
-    'font-nm':"'Playfair Display', serif",'sz-nm':11,'col-nm':'#1a1a18','op-nm':100,'x-nm':28,'y-nm':45,
-    'txt-ct':'','lbl-ct':'Contenance','font-ct':"'Lato', sans-serif",'sz-ct':9,'sz-ctl':5,'col-ct':'#1a1a18','op-ct':100,'x-ct':16,'y-ct':72,
-    'txt-ca':'','lbl-ca':'Catégorie','font-ca':"'Lato', sans-serif",'sz-ca':9,'sz-cal':5,'col-ca':'#1a1a18','op-ca':100,'x-ca':42,'y-ca':72,
-    'txt-qt':'x 12','lbl-qt':'Qté/caisse','font-qt':"'Lato', sans-serif",'sz-qt':9,'col-qt-bg':'#1a1a18','col-qt-tx':'#F2F0EB','op-qt':100,'x-qt':75,'y-qt':72,
-    'img-sz':50,'img-op':90,'img-x':83,'img-y':45,'img-ro':0
-  }},
 ];
 
 // ===================== SUPABASE CONFIG =====================
@@ -922,9 +912,9 @@ async function exportPNG(){
   a.href=oc.toDataURL('image/png',1);a.click();
 }
 async function exportBrother(){
-  // Utilise les dimensions réelles de l'étiquette mais à 300dpi
-  const W=gn('dim-w'), H=gn('dim-h'), SC=300/25.4;
-  const pxW=Math.round(W*SC), pxH=Math.round(H*SC);
+  // Format fixe 62×29mm pour les étiquettes derrière les impressions QL-820NWB
+  const W=62, H=29, SC=300/25.4;
+  const pxW=Math.round(W*SC),pxH=Math.round(H*SC);
   const cc=await buildCanvas(pxW,pxH);
 
   const bw=document.createElement('canvas');
