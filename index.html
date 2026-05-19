@@ -782,7 +782,18 @@ function stepS(id,step){
   el.value=Math.min(parseFloat(el.max||999),Math.max(parseFloat(el.min||0),v));
   if(id==='dim-w'||id==='dim-h')updDims();else render();
 }
-function loadPhoto(input){if(!input.files||!input.files[0])return;const r=new FileReader();r.onload=e=>{photoDataURL=e.target.result;g('preview-thumb').src=photoDataURL;g('preview-thumb').style.display='block';render()};r.readAsDataURL(input.files[0])}
+function loadPhoto(input){
+  if(!input.files||!input.files[0])return;
+  const r=new FileReader();
+  r.onload=e=>{
+    photoDataURL=e.target.result;
+    const pt=g('preview-thumb');if(pt){pt.src=photoDataURL;pt.style.display='block';}
+    render();
+    // Réinitialiser le drag pour inclure bg-img maintenant visible
+    requestAnimationFrame(()=>initDrag());
+  };
+  r.readAsDataURL(input.files[0]);
+}
 function setDPI(dpi){currentDPI=dpi;[300,400,600].forEach(d=>{const b=g('dpi-'+d);if(b)b.classList.toggle('adpi',d===dpi)})}
 
 function pos(el,xP,yP){const lc=g('lc');el.style.left=(xP/100*lc.offsetWidth)+'px';el.style.top=(yP/100*lc.offsetHeight)+'px';el.style.transform='translate(-50%,-50%)'}
@@ -798,65 +809,80 @@ const EL_INPUTS = {
 };
 
 function initDrag(){
-  Object.keys(EL_INPUTS).forEach(elId => {
-    const el = document.getElementById(elId);
-    if(!el) return;
-    let dragging=false, startX=0, startY=0, startXpct=0, startYpct=0;
+  const lc=g('lc');
+  if(!lc||lc._dragInit)return;
+  lc._dragInit=true;
 
-    el.addEventListener('mousedown', e => {
-      e.preventDefault();
-      dragging=true;
-      const lc=g('lc');
-      startX=e.clientX; startY=e.clientY;
-      const [xi,yi]=EL_INPUTS[elId];
-      startXpct=parseFloat(g(xi).value)||50;
-      startYpct=parseFloat(g(yi).value)||50;
-      el.style.cursor='grabbing';
-    });
+  let dragging=false, activeEl=null, activeElId=null;
+  let startX=0, startY=0, startXpct=0, startYpct=0;
 
-    el.addEventListener('touchstart', e => {
-      const t=e.touches[0];
-      dragging=true;
-      const lc=g('lc');
-      startX=t.clientX; startY=t.clientY;
-      const [xi,yi]=EL_INPUTS[elId];
-      startXpct=parseFloat(g(xi).value)||50;
-      startYpct=parseFloat(g(yi).value)||50;
-    }, {passive:true});
-
-    function onMove(cx, cy){
-      if(!dragging)return;
-      const lc=g('lc');
-      const rect=lc.getBoundingClientRect();
-      const dx=(cx-startX)/rect.width*100;
-      const dy=(cy-startY)/rect.height*100;
-      const [xi,yi]=EL_INPUTS[elId];
-      const nx=Math.min(100,Math.max(0,startXpct+dx));
-      const ny=Math.min(100,Math.max(0,startYpct+dy));
-      g(xi).value=Math.round(nx);
-      g(yi).value=Math.round(ny);
-      // Repositionner visuellement
-      if(elId==='bg-img'){
-        const sz=gn('img-sz')/100*Math.min(lc.offsetWidth,lc.offsetHeight);
-        el.style.left=(nx/100*lc.offsetWidth-sz/2)+'px';
-        el.style.top=(ny/100*lc.offsetHeight-sz/2)+'px';
-      } else {
-        pos(el, nx, ny);
-      }
-      if(elId==='el-qt'){requestAnimationFrame(()=>{const l=g('el-qt-lbl');if(l)el.style.width=l.offsetWidth+'px'});}
+  function getElId(target){
+    // Remonter jusqu'à un élément draggable
+    let el=target;
+    while(el && el!==lc){
+      if(el.id && (EL_INPUTS[el.id]!==undefined)) return el.id;
+      el=el.parentElement;
     }
+    return null;
+  }
 
-    document.addEventListener('mousemove', e => onMove(e.clientX, e.clientY));
-    document.addEventListener('touchmove', e => { const t=e.touches[0]; onMove(t.clientX, t.clientY); }, {passive:true});
+  function startDrag(elId, cx, cy){
+    activeElId=elId;
+    activeEl=g(elId);
+    if(!activeEl)return;
+    dragging=true;
+    startX=cx; startY=cy;
+    const [xi,yi]=EL_INPUTS[elId];
+    startXpct=parseFloat(g(xi).value)||50;
+    startYpct=parseFloat(g(yi).value)||50;
+    activeEl.style.cursor='grabbing';
+  }
 
-    function onEnd(){
-      if(!dragging)return;
-      dragging=false;
-      el.style.cursor='grab';
-    }
-    document.addEventListener('mouseup', onEnd);
-    document.addEventListener('touchend', onEnd);
+  lc.addEventListener('mousedown', e=>{
+    const elId=getElId(e.target);
+    if(!elId)return;
+    e.preventDefault();
+    startDrag(elId, e.clientX, e.clientY);
   });
+
+  lc.addEventListener('touchstart', e=>{
+    const elId=getElId(e.target);
+    if(!elId)return;
+    const t=e.touches[0];
+    startDrag(elId, t.clientX, t.clientY);
+  },{passive:true});
+
+  function onMove(cx,cy){
+    if(!dragging||!activeEl||!activeElId)return;
+    const rect=lc.getBoundingClientRect();
+    const dx=(cx-startX)/rect.width*100;
+    const dy=(cy-startY)/rect.height*100;
+    const [xi,yi]=EL_INPUTS[activeElId];
+    const nx=Math.min(100,Math.max(0,startXpct+dx));
+    const ny=Math.min(100,Math.max(0,startYpct+dy));
+    g(xi).value=Math.round(nx);
+    g(yi).value=Math.round(ny);
+    if(activeElId==='bg-img'){
+      const sz=gn('img-sz')/100*Math.min(lc.offsetWidth,lc.offsetHeight);
+      activeEl.style.left=(nx/100*lc.offsetWidth-sz/2)+'px';
+      activeEl.style.top=(ny/100*lc.offsetHeight-sz/2)+'px';
+    } else {
+      pos(activeEl, nx, ny);
+    }
+    if(activeElId==='el-qt'){requestAnimationFrame(()=>{const l=g('el-qt-lbl');if(l)activeEl.style.width=l.offsetWidth+'px';});}
+  }
+
+  function endDrag(){
+    if(!dragging)return;
+    dragging=false;
+    if(activeEl)activeEl.style.cursor='grab';
+    activeEl=null; activeElId=null;
+  }
+
+  document.addEventListener('mousemove', e=>onMove(e.clientX,e.clientY));
+  document.addEventListener('touchmove', e=>{const t=e.touches[0];onMove(t.clientX,t.clientY);},{passive:true});
+  document.addEventListener('mouseup', endDrag);
+  document.addEventListener('touchend', endDrag);
 }
 
 function render(){
