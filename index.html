@@ -363,7 +363,7 @@ input[type=color]{width:28px;height:28px;border:1px solid #DDD;border-radius:5px
     <div class="prev-area">
       <div class="prev-hint" id="ph-hint">Aperçu — 62 × 100 mm</div>
       <div id="lc" style="width:198px;height:320px">
-        <img id="bg-img" src="" alt="" style="position:absolute;object-fit:contain;display:none;transform-origin:center center;pointer-events:none">
+        <img id="bg-img" src="" alt="" style="position:absolute;object-fit:contain;display:none;transform-origin:center center;">
         <div class="lbl-el" id="el-co">MAISON VAUVY</div>
         <div class="lbl-el" id="el-nm"></div>
         <div class="lbl-el info-block" id="el-ct"><span class="info-sub-lbl" id="el-ct-lbl">CONTENANCE</span><span class="info-sub-val" id="el-ct-val"></span></div>
@@ -891,10 +891,15 @@ function render(){
   const bi=g('bg-img');
   if(photoDataURL && bi){
     const sz=gn('img-sz')/100*Math.min(cw,ch);
-    bi.style.display='block';bi.style.width=sz+'px';bi.style.height=sz+'px';
+    bi.style.display='block';
+    bi.style.width=sz+'px';
+    bi.style.height=sz+'px';
     bi.style.opacity=gn('img-op')/100;
-    bi.style.left=(gn('img-x')/100*cw-sz/2)+'px';bi.style.top=(gn('img-y')/100*ch-sz/2)+'px';
-    bi.style.transform=`rotate(${gn('img-ro')}deg)`;bi.src=photoDataURL;
+    bi.style.left=(gn('img-x')/100*cw-sz/2)+'px';
+    bi.style.top=(gn('img-y')/100*ch-sz/2)+'px';
+    bi.style.transform=`rotate(${gn('img-ro')}deg)`;
+    bi.style.cursor='grab';
+    if(bi.src!==photoDataURL) bi.src=photoDataURL;
   } else if(bi){ bi.style.display='none'; }
   const eco=g('el-co');
   eco.textContent=gv('txt-co');eco.style.fontFamily=gv('font-co');eco.style.fontSize=gn('sz-co')+'px';
