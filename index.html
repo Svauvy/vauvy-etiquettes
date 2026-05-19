@@ -134,7 +134,7 @@ input[type=color]{width:28px;height:28px;border:1px solid #DDD;border-radius:5px
 .lbl-el:hover{outline:1.5px dashed #B8860B;outline-offset:3px;}
 #el-qt{white-space:normal;text-align:center}
 .qty-lbl-txt{display:block;font-size:7px;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:3px;white-space:nowrap}
-#el-qty-badge{display:block;border-radius:5px;font-weight:700;padding:2px 14px;white-space:nowrap}
+#el-qty-badge{display:block;border-radius:5px;font-weight:700;padding:0.2em 0.8em;white-space:nowrap}
 .info-block{text-align:center}
 .info-sub-lbl{display:block;font-weight:700;letter-spacing:1px;text-transform:uppercase;opacity:.6}
 .info-sub-val{display:block;font-weight:700}
@@ -1029,7 +1029,11 @@ async function buildCanvas(cw,ch){
   const qtX=gn('x-qt')/100*lcW*sx,qtY=gn('y-qt')/100*lcH*sy,qtFs=gn('sz-qt')*sx,qtOp=gn('op-qt')/100;
   ctx.save();ctx.globalAlpha=qtOp*.7;ctx.fillStyle=gv('col-qt-bg');ctx.font=`${7*sx}px ${gv('font-qt')}`;
   ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(gv('lbl-qt').toUpperCase(),qtX,qtY-qtFs*.85);ctx.restore();
-  const bw=28*sx,bh=qtFs*1.6,br=4*sx,bx=qtX-bw/2,by=qtY-bh/2+qtFs*.2;
+  // Badge proportionnel au texte
+  ctx.font=`bold ${qtFs}px ${gv('font-qt')}`;
+  const txtW=ctx.measureText(gv('txt-qt')).width;
+  const bPadX=qtFs*0.8, bPadY=qtFs*0.2;
+  const bw=txtW+bPadX*2, bh=qtFs+bPadY*2, br=4*sx, bx=qtX-bw/2, by=qtY-bh/2+qtFs*.2;
   ctx.save();ctx.globalAlpha=qtOp;ctx.fillStyle=gv('col-qt-bg');ctx.beginPath();
   ctx.moveTo(bx+br,by);ctx.lineTo(bx+bw-br,by);ctx.quadraticCurveTo(bx+bw,by,bx+bw,by+br);
   ctx.lineTo(bx+bw,by+bh-br);ctx.quadraticCurveTo(bx+bw,by+bh,bx+bw-br,by+bh);
