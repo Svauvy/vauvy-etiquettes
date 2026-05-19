@@ -425,18 +425,41 @@ const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
 const SB_HEADERS = {'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Prefer':'resolution=merge-duplicates'};
 
 async function sbGet(table, order='created_at'){
-  const r=await fetch(`${SB_URL}/rest/v1/${table}?order=${order}.asc`,{headers:{...SB_HEADERS,'Prefer':''}});
-  if(!r.ok){console.error('sbGet error',await r.text());return[];}
-  return await r.json();
+  try {
+    const r=await fetch(`${SB_URL}/rest/v1/${table}?order=${order}.asc`,{
+      method:'GET',
+      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'}
+    });
+    if(!r.ok){const t=await r.text();console.error('sbGet error',r.status,t);return[];}
+    return await r.json();
+  } catch(e) {
+    console.error('sbGet fetch failed:', e.message, e);
+    throw e;
+  }
 }
 async function sbUpsert(table,data){
-  const h={...SB_HEADERS,'Prefer':'resolution=merge-duplicates,return=minimal'};
-  const r=await fetch(`${SB_URL}/rest/v1/${table}`,{method:'POST',headers:h,body:JSON.stringify(data)});
-  if(!r.ok){const t=await r.text();console.error('sbUpsert error',t);}
+  try {
+    const r=await fetch(`${SB_URL}/rest/v1/${table}`,{
+      method:'POST',
+      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},
+      body:JSON.stringify(data)
+    });
+    if(!r.ok){const t=await r.text();console.error('sbUpsert error',r.status,t);}
+  } catch(e) {
+    console.error('sbUpsert fetch failed:', e.message, e);
+    throw e;
+  }
 }
 async function sbDelete(table,id){
-  const r=await fetch(`${SB_URL}/rest/v1/${table}?id=eq.${encodeURIComponent(id)}`,{method:'DELETE',headers:{...SB_HEADERS,'Prefer':''}});
-  if(!r.ok)console.error('sbDelete error',await r.text());
+  try {
+    const r=await fetch(`${SB_URL}/rest/v1/${table}?id=eq.${encodeURIComponent(id)}`,{
+      method:'DELETE',
+      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'}
+    });
+    if(!r.ok)console.error('sbDelete error',r.status,await r.text());
+  } catch(e) {
+    console.error('sbDelete fetch failed:', e.message, e);
+  }
 }
 
 // Cache local pour éviter les rechargements inutiles
