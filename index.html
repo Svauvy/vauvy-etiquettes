@@ -126,7 +126,9 @@ input[type=color]{width:28px;height:28px;border:1px solid #DDD;border-radius:5px
 .prev-area{display:flex;flex-direction:column;align-items:center;justify-content:center;background:#DEDAD2;background-image:radial-gradient(#C4C0B8 1px,transparent 1px);background-size:16px 16px;gap:11px;overflow:hidden}
 .prev-hint{font-size:9px;color:#AAA;letter-spacing:1.5px;text-transform:uppercase}
 #lc{position:relative;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,.2);background:#fff;flex-shrink:0}
-#bg-img{position:absolute;object-fit:contain;display:none;transform-origin:center center;pointer-events:none}
+#bg-img{position:absolute;object-fit:contain;display:none;transform-origin:center center;pointer-events:all;cursor:grab;user-select:none;}
+#bg-img:hover{outline:1.5px dashed #B8860B;outline-offset:3px;}
+#bg-img:active{cursor:grabbing;}
 .lbl-el{position:absolute;z-index:2;pointer-events:all;white-space:nowrap;transform:translate(-50%,-50%);cursor:grab;user-select:none;}
 .lbl-el:active{cursor:grabbing;}
 .lbl-el:hover{outline:1.5px dashed #B8860B;outline-offset:3px;}
@@ -792,6 +794,7 @@ const EL_INPUTS = {
   'el-ct': ['x-ct','y-ct'],
   'el-ca': ['x-ca','y-ca'],
   'el-qt': ['x-qt','y-qt'],
+  'bg-img': ['img-x','img-y'],
 };
 
 function initDrag(){
@@ -832,8 +835,14 @@ function initDrag(){
       const ny=Math.min(100,Math.max(0,startYpct+dy));
       g(xi).value=Math.round(nx);
       g(yi).value=Math.round(ny);
-      pos(el, nx, ny);
-      // sync les qty width fix
+      // Repositionner visuellement
+      if(elId==='bg-img'){
+        const sz=gn('img-sz')/100*Math.min(lc.offsetWidth,lc.offsetHeight);
+        el.style.left=(nx/100*lc.offsetWidth-sz/2)+'px';
+        el.style.top=(ny/100*lc.offsetHeight-sz/2)+'px';
+      } else {
+        pos(el, nx, ny);
+      }
       if(elId==='el-qt'){requestAnimationFrame(()=>{const l=g('el-qt-lbl');if(l)el.style.width=l.offsetWidth+'px'});}
     }
 
