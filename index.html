@@ -205,6 +205,7 @@ input[type=color]{width:28px;height:28px;border:1px solid #DDD;border-radius:5px
       <div class="etabs">
         <button class="etab active" onclick="showETab('et-format',this)">Format</button>
         <button class="etab" onclick="showETab('et-elements',this)">Éléments</button>
+        <button class="etab" onclick="showETab('et-photo',this)">Photo</button>
         <button class="etab" onclick="showETab('et-export',this)">Export</button>
       </div>
 
@@ -317,6 +318,23 @@ input[type=color]{width:28px;height:28px;border:1px solid #DDD;border-radius:5px
         </div>
       </div>
 
+      <div class="econtent" id="et-photo">
+        <div class="ps">
+          <div class="stitle">Image produit</div>
+          <label class="uz" for="inp-ph">
+            <input type="file" id="inp-ph" accept="image/*" onchange="loadPhoto(this)">
+            <div class="uicon">📷</div><p><strong>Cliquer pour importer</strong></p><p>PNG fond transparent recommandé</p>
+            <img id="preview-thumb" src="" alt="" style="max-width:50px;max-height:50px;object-fit:contain;margin-top:6px;display:none;border-radius:3px">
+          </label>
+          <div style="margin-top:11px">
+            <div class="fg"><lab>Taille %</lab><div class="siw"><button class="sbtn" onclick="stepS('img-sz',-5)">−</button><input type="number" id="img-sz" value="80" min="5" max="300" step="5" oninput="render()"><button class="sbtn" onclick="stepS('img-sz',5)">+</button></div></div>
+            <div class="fg"><lab>Opacité %</lab><div class="siw"><button class="sbtn" onclick="stepS('img-op',-5)">−</button><input type="number" id="img-op" value="20" min="1" max="100" step="5" oninput="render()"><button class="sbtn" onclick="stepS('img-op',5)">+</button></div></div>
+            <div class="fg"><lab>Position</lab><div class="pr"><div><lab>X %</lab><div class="siw"><button class="sbtn" onclick="stepS('img-x',-1)">−</button><input type="number" id="img-x" value="50" min="0" max="100" oninput="render()"><button class="sbtn" onclick="stepS('img-x',1)">+</button></div></div><div><lab>Y %</lab><div class="siw"><button class="sbtn" onclick="stepS('img-y',-1)">−</button><input type="number" id="img-y" value="50" min="0" max="100" oninput="render()"><button class="sbtn" onclick="stepS('img-y',1)">+</button></div></div></div></div>
+            <div class="fg"><lab>Rotation °</lab><div class="siw"><button class="sbtn" onclick="stepS('img-ro',-15)">−</button><input type="number" id="img-ro" value="0" min="-180" max="180" step="15" oninput="render()"><button class="sbtn" onclick="stepS('img-ro',15)">+</button></div></div>
+          </div>
+        </div>
+      </div>
+
       <div class="econtent" id="et-export">
         <div class="ps">
           <div class="stitle">💾 Sauvegarder</div>
@@ -341,6 +359,7 @@ input[type=color]{width:28px;height:28px;border:1px solid #DDD;border-radius:5px
     <div class="prev-area">
       <div class="prev-hint" id="ph-hint">Aperçu — 62 × 100 mm</div>
       <div id="lc" style="width:198px;height:320px">
+        <img id="bg-img" src="" alt="" style="position:absolute;object-fit:contain;display:none;transform-origin:center center;pointer-events:none">
         <div class="lbl-el" id="el-co">MAISON VAUVY</div>
         <div class="lbl-el" id="el-nm"></div>
         <div class="lbl-el info-block" id="el-ct"><span class="info-sub-lbl" id="el-ct-lbl">CONTENANCE</span><span class="info-sub-val" id="el-ct-val"></span></div>
@@ -723,6 +742,8 @@ function openEditor(cat){
     // Load template state as base
     loadState(cat.templateState);
     photoDataURL=null;
+    const bi=g('bg-img');if(bi){bi.style.display='none';bi.src='';}
+    const pt=g('preview-thumb');if(pt)pt.style.display='none';
     editingId=null;
   } else {
     resetDefs();
@@ -731,6 +752,7 @@ function openEditor(cat){
     document.getElementById('btn-v').classList.toggle('act',orient==='v');
     document.getElementById('btn-h').classList.toggle('act',orient==='h');
     photoDataURL=null;
+    const bi=g('bg-img');if(bi){bi.style.display='none';bi.src='';}
   }
   showScreen('editor');updDims();
 }
@@ -764,6 +786,14 @@ function pos(el,xP,yP){const lc=g('lc');el.style.left=(xP/100*lc.offsetWidth)+'p
 function render(){
   const lc=g('lc'),cw=lc.offsetWidth,ch=lc.offsetHeight;
   lc.style.background=gv('col-bg');
+  const bi=g('bg-img');
+  if(photoDataURL && bi){
+    const sz=gn('img-sz')/100*Math.min(cw,ch);
+    bi.style.display='block';bi.style.width=sz+'px';bi.style.height=sz+'px';
+    bi.style.opacity=gn('img-op')/100;
+    bi.style.left=(gn('img-x')/100*cw-sz/2)+'px';bi.style.top=(gn('img-y')/100*ch-sz/2)+'px';
+    bi.style.transform=`rotate(${gn('img-ro')}deg)`;bi.src=photoDataURL;
+  } else if(bi){ bi.style.display='none'; }
   const eco=g('el-co');
   eco.textContent=gv('txt-co');eco.style.fontFamily=gv('font-co');eco.style.fontSize=gn('sz-co')+'px';
   eco.style.color=gv('col-co');eco.style.letterSpacing=gn('ls-co')+'px';eco.style.fontWeight='700';eco.style.opacity=gn('op-co')/100;
@@ -834,9 +864,10 @@ function captureState(){
 }
 function loadState(state){
   Object.entries(state).forEach(([id,v])=>{if(id.startsWith('_'))return;const el=g(id);if(el)el.value=v});
-  orient=state._orient||'v';
+  orient=state._orient||'v';photoDataURL=state._photo||null;
   document.getElementById('btn-v').classList.toggle('act',orient==='v');
   document.getElementById('btn-h').classList.toggle('act',orient==='h');
+  if(photoDataURL){const bi=g('bg-img');if(bi){bi.src=photoDataURL;bi.style.display='block';}const pt=g('preview-thumb');if(pt){pt.src=photoDataURL;pt.style.display='block';}}
   updateLblDisplay('lbl-ct','lbl-ct-display');
   updateLblDisplay('lbl-ca','lbl-ca-display');
 }
@@ -846,7 +877,14 @@ function resetDefs(){
   g('font-co').value="'Playfair Display', serif";
   ['font-nm','font-ct','font-ca','font-qt'].forEach(id=>{const el=g(id);if(el)el.value="'Lato', sans-serif"});
 }
-function resetEditor(){resetDefs();if(currentCat?.defaults)Object.entries(currentCat.defaults).forEach(([id,v])=>{const el=g(id);if(el)el.value=v});updDims()}
+function resetEditor(){
+  resetDefs();
+  if(currentCat?.defaults)Object.entries(currentCat.defaults).forEach(([id,v])=>{const el=g(id);if(el)el.value=v});
+  photoDataURL=null;
+  const bi=g('bg-img');if(bi){bi.style.display='none';bi.src='';}
+  const pt=g('preview-thumb');if(pt)pt.style.display='none';
+  updDims();
+}
 
 // CANVAS
 async function buildCanvas(cw,ch){
@@ -855,6 +893,18 @@ async function buildCanvas(cw,ch){
   const lc=g('lc'),lcW=lc.offsetWidth,lcH=lc.offsetHeight;
   const sx=cw/lcW,sy=ch/lcH;
   ctx.fillStyle=gv('col-bg');ctx.fillRect(0,0,cw,ch);
+  if(photoDataURL){
+    await new Promise(res=>{
+      const img=new Image();
+      img.onload=()=>{
+        const sz=gn('img-sz')/100*Math.min(lcW,lcH);
+        const px=gn('img-x')/100*lcW,py=gn('img-y')/100*lcH;
+        ctx.save();ctx.globalAlpha=gn('img-op')/100;
+        ctx.translate(px*sx,py*sy);ctx.rotate(gn('img-ro')*Math.PI/180);
+        ctx.drawImage(img,-sz*sx/2,-sz*sy/2,sz*sx,sz*sy);ctx.restore();res();
+      };img.onerror=res;img.src=photoDataURL;
+    });
+  }
   function dEl(t,xP,yP,fs,col,fnt,bold=true,op=1){
     ctx.save();ctx.globalAlpha=op;ctx.fillStyle=col;ctx.font=`${bold?'bold ':' '}${fs*sx}px ${fnt}`;
     ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(t,xP/100*lcW*sx,yP/100*lcH*sy);ctx.restore();
