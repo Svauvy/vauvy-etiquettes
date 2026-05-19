@@ -127,7 +127,9 @@ input[type=color]{width:28px;height:28px;border:1px solid #DDD;border-radius:5px
 .prev-hint{font-size:9px;color:#AAA;letter-spacing:1.5px;text-transform:uppercase}
 #lc{position:relative;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,.2);background:#fff;flex-shrink:0}
 #bg-img{position:absolute;object-fit:contain;display:none;transform-origin:center center;pointer-events:none}
-.lbl-el{position:absolute;z-index:2;pointer-events:none;white-space:nowrap;transform:translate(-50%,-50%)}
+.lbl-el{position:absolute;z-index:2;pointer-events:all;white-space:nowrap;transform:translate(-50%,-50%);cursor:grab;user-select:none;}
+.lbl-el:active{cursor:grabbing;}
+.lbl-el:hover{outline:1.5px dashed #B8860B;outline-offset:3px;}
 #el-qt{white-space:normal;text-align:center}
 .qty-lbl-txt{display:block;font-size:7px;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:3px;white-space:nowrap}
 #el-qty-badge{display:block;border-radius:5px;font-weight:700;padding:2px 14px;white-space:nowrap}
@@ -701,7 +703,7 @@ async function handleEditLabel(e,id){
   if(lb.category){const cats=await getCats();currentCat=cats.find(c=>c.name===lb.category)||null}
   loadState(lb.state);
   document.getElementById('ed-cat-lbl').textContent=(lb.category||'ÉDITEUR').toUpperCase();
-  showScreen('editor');updDims();
+  showScreen('editor');updDims();requestAnimationFrame(()=>initDrag());
 }
 // alias pour compatibilité
 function editLabel(e,id){handleEditLabel(e,id)}
@@ -754,7 +756,7 @@ function openEditor(cat){
     photoDataURL=null;
     const bi=g('bg-img');if(bi){bi.style.display='none';bi.src='';}
   }
-  showScreen('editor');updDims();
+  showScreen('editor');updDims();requestAnimationFrame(()=>initDrag());
 }
 function setOrient(o){
   orient=o;
@@ -782,6 +784,71 @@ function loadPhoto(input){if(!input.files||!input.files[0])return;const r=new Fi
 function setDPI(dpi){currentDPI=dpi;[300,400,600].forEach(d=>{const b=g('dpi-'+d);if(b)b.classList.toggle('adpi',d===dpi)})}
 
 function pos(el,xP,yP){const lc=g('lc');el.style.left=(xP/100*lc.offsetWidth)+'px';el.style.top=(yP/100*lc.offsetHeight)+'px';el.style.transform='translate(-50%,-50%)'}
+
+// Mapping élément → inputs X/Y
+const EL_INPUTS = {
+  'el-co': ['x-co','y-co'],
+  'el-nm': ['x-nm','y-nm'],
+  'el-ct': ['x-ct','y-ct'],
+  'el-ca': ['x-ca','y-ca'],
+  'el-qt': ['x-qt','y-qt'],
+};
+
+function initDrag(){
+  Object.keys(EL_INPUTS).forEach(elId => {
+    const el = document.getElementById(elId);
+    if(!el) return;
+    let dragging=false, startX=0, startY=0, startXpct=0, startYpct=0;
+
+    el.addEventListener('mousedown', e => {
+      e.preventDefault();
+      dragging=true;
+      const lc=g('lc');
+      startX=e.clientX; startY=e.clientY;
+      const [xi,yi]=EL_INPUTS[elId];
+      startXpct=parseFloat(g(xi).value)||50;
+      startYpct=parseFloat(g(yi).value)||50;
+      el.style.cursor='grabbing';
+    });
+
+    el.addEventListener('touchstart', e => {
+      const t=e.touches[0];
+      dragging=true;
+      const lc=g('lc');
+      startX=t.clientX; startY=t.clientY;
+      const [xi,yi]=EL_INPUTS[elId];
+      startXpct=parseFloat(g(xi).value)||50;
+      startYpct=parseFloat(g(yi).value)||50;
+    }, {passive:true});
+
+    function onMove(cx, cy){
+      if(!dragging)return;
+      const lc=g('lc');
+      const rect=lc.getBoundingClientRect();
+      const dx=(cx-startX)/rect.width*100;
+      const dy=(cy-startY)/rect.height*100;
+      const [xi,yi]=EL_INPUTS[elId];
+      const nx=Math.min(100,Math.max(0,startXpct+dx));
+      const ny=Math.min(100,Math.max(0,startYpct+dy));
+      g(xi).value=Math.round(nx);
+      g(yi).value=Math.round(ny);
+      pos(el, nx, ny);
+      // sync les qty width fix
+      if(elId==='el-qt'){requestAnimationFrame(()=>{const l=g('el-qt-lbl');if(l)el.style.width=l.offsetWidth+'px'});}
+    }
+
+    document.addEventListener('mousemove', e => onMove(e.clientX, e.clientY));
+    document.addEventListener('touchmove', e => { const t=e.touches[0]; onMove(t.clientX, t.clientY); }, {passive:true});
+
+    function onEnd(){
+      if(!dragging)return;
+      dragging=false;
+      el.style.cursor='grab';
+    }
+    document.addEventListener('mouseup', onEnd);
+    document.addEventListener('touchend', onEnd);
+  });
+}
 
 function render(){
   const lc=g('lc'),cw=lc.offsetWidth,ch=lc.offsetHeight;
