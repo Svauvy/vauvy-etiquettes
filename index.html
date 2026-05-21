@@ -47,6 +47,30 @@ body{font-family:"Lato",sans-serif;background:#F2F0EB;color:#1a1a18;min-height:1
 .empty{text-align:center;padding:28px;color:#CCC;grid-column:1/-1}
 .empty-icon{font-size:28px;margin-bottom:6px}
 .empty p{font-size:11px}
+/* Print screen */
+.print-cat-section{margin-bottom:28px}
+.print-cat-title{font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#AAA;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.print-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px}
+.print-card{background:#fff;border-radius:8px;border:1.5px solid #E8E5DF;overflow:hidden;cursor:pointer;transition:all .15s;position:relative;}
+.print-card:hover{border-color:#2a6e3c;box-shadow:0 4px 14px rgba(0,0,0,.08);transform:translateY(-1px)}
+.print-card-thumb{width:100%;aspect-ratio:1;background:#F5F3F0;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.print-card-thumb img{max-width:80%;max-height:80%;object-fit:contain}
+.print-card-info{padding:7px 9px}
+.print-card-name{font-size:10.5px;font-weight:700;color:#1a1a18;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.print-card-meta{font-size:8.5px;color:#AAA;margin-top:2px}
+.print-card-btn{position:absolute;bottom:6px;right:6px;background:#2a6e3c;color:#fff;border:none;border-radius:4px;width:22px;height:22px;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .15s}
+.print-card:hover .print-card-btn{opacity:1}
+/* Modal impression */
+.print-modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:center;justify-content:center}
+.print-modal-overlay.open{display:flex}
+.print-modal{background:#fff;border-radius:12px;padding:24px;width:380px;max-width:95vw;text-align:center}
+.print-modal h3{font-family:'Playfair Display',serif;font-size:16px;margin-bottom:6px}
+.print-modal p{font-size:12px;color:#888;margin-bottom:16px}
+.print-modal-preview{margin:0 auto 16px;border:1px solid #EEE;border-radius:6px;overflow:hidden;display:inline-block}
+.print-modal-btns{display:flex;gap:8px}
+.print-mbtn{flex:1;padding:10px;border-radius:6px;border:none;font-family:'Lato',sans-serif;font-size:11px;font-weight:700;cursor:pointer}
+.print-mbtn-p{background:#2a6e3c;color:#fff}
+.print-mbtn-s{background:#F0EDE8;color:#555}
 /* MODAL */
 .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100;align-items:center;justify-content:center}
 .overlay.open{display:flex}
@@ -142,6 +166,19 @@ input[type=color]{width:28px;height:28px;border:1px solid #DDD;border-radius:5px
 </head>
 <body>
 
+<!-- MODAL IMPRESSION -->
+<div class="print-modal-overlay" id="modal-print">
+  <div class="print-modal">
+    <h3 id="pm-title">Verre à vin</h3>
+    <p id="pm-meta">62×100mm</p>
+    <div class="print-modal-preview" id="pm-preview"></div>
+    <div class="print-modal-btns">
+      <button class="print-mbtn print-mbtn-s" onclick="document.getElementById('modal-print').classList.remove('open')">Annuler</button>
+      <button class="print-mbtn print-mbtn-p" onclick="doPrint()">🖨 Imprimer</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL CATÉGORIE -->
 <div class="overlay" id="modal-cat">
   <div class="modal">
@@ -177,11 +214,23 @@ input[type=color]{width:28px;height:28px;border:1px solid #DDD;border-radius:5px
 <div class="screen active" id="screen-home">
   <div class="app-header">
     <h1>MAISON VAUVY</h1>
-    <span style="font-size:10px;color:#555;letter-spacing:1.5px">ÉTIQUETTES</span>
+    <button onclick="openPrintScreen()" style="background:#2a6e3c;border:none;color:#fff;padding:6px 14px;border-radius:5px;font-family:'Lato',sans-serif;font-size:10px;font-weight:700;letter-spacing:1px;cursor:pointer;">🖨 IMPRIMER</button>
   </div>
   <div class="home-body">
     <div class="section-hdr">Catégories de produits</div>
     <div class="cat-grid" id="cat-grid"></div>
+  </div>
+</div>
+
+<!-- SCREEN IMPRIMER -->
+<div class="screen" id="screen-print">
+  <div class="app-header">
+    <button class="back-btn" onclick="goHome()">← Accueil</button>
+    <h1>MAISON VAUVY</h1>
+    <span style="font-size:10px;color:#555;letter-spacing:1px">IMPRIMER</span>
+  </div>
+  <div class="home-body" id="print-body" style="max-width:100%;padding:20px 28px;">
+    <!-- populated by JS -->
   </div>
 </div>
 
@@ -560,6 +609,68 @@ document.getElementById('font-co').value="'Playfair Display', serif";
 function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById('screen-'+id).classList.add('active')}
 function goHome(){showScreen('home');renderHome()}
 async function goCategory(){if(currentCat){showScreen('category');await renderCategoryScreen(currentCat)}else goHome()}
+
+let printLabelData=null;
+
+async function openPrintScreen(){
+  showScreen('print');
+  const body=document.getElementById('print-body');
+  body.innerHTML='<div style="color:#AAA;font-size:12px;padding:20px">Chargement...</div>';
+  _labelsCache=null;
+  const [cats,labels]=await Promise.all([getCats(),getLabels()]);
+  body.innerHTML='';
+  cats.forEach(cat=>{
+    const catLabels=labels.filter(l=>l.category===cat.name).sort((a,b)=>a.name.localeCompare(b.name,'fr',{sensitivity:'base'}));
+    if(!catLabels.length)return;
+    const section=document.createElement('div');
+    section.className='print-cat-section';
+    section.innerHTML=`<div class="print-cat-title"><span>${cat.icon}</span>${cat.name}</div>`;
+    const grid=document.createElement('div');
+    grid.className='print-grid';
+    catLabels.forEach(lb=>{
+      const card=document.createElement('div');
+      card.className='print-card';
+      card.innerHTML=`
+        <div class="print-card-thumb"><img src="${lb.thumb}" alt="${lb.name}"></div>
+        <div class="print-card-info"><div class="print-card-name">${lb.name}</div><div class="print-card-meta">${lb.dims||''}</div></div>
+        <button class="print-card-btn" title="Imprimer">🖨</button>`;
+      card.addEventListener('click',()=>openPrintModal(lb));
+      grid.appendChild(card);
+    });
+    section.appendChild(grid);
+    body.appendChild(section);
+  });
+  if(!body.children.length) body.innerHTML='<div class="empty"><div class="empty-icon">🏷</div><p>Aucune étiquette sauvegardée</p></div>';
+}
+
+function openPrintModal(lb){
+  printLabelData=lb;
+  document.getElementById('pm-title').textContent=lb.name;
+  document.getElementById('pm-meta').textContent=lb.dims||'';
+  const preview=document.getElementById('pm-preview');
+  preview.innerHTML='';
+  const img=document.createElement('img');
+  img.src=lb.thumb;img.style.cssText='max-width:220px;max-height:180px;display:block;';
+  preview.appendChild(img);
+  document.getElementById('modal-print').classList.add('open');
+}
+
+async function doPrint(){
+  if(!printLabelData)return;
+  document.getElementById('modal-print').classList.remove('open');
+  showLoading('Génération en cours...');
+  // Sauvegarder l'état actuel de l'éditeur
+  const savedState=captureState();
+  const savedPhoto=photoDataURL;
+  // Charger l'état de l'étiquette à imprimer
+  loadState(printLabelData.state);
+  await new Promise(r=>setTimeout(r,150));
+  await exportBrother();
+  // Restaurer
+  loadState(savedState);
+  photoDataURL=savedPhoto;
+  hideLoading();
+}
 function toggleAdv(id){
   const panel=document.getElementById(id);
   panel.classList.toggle('open');
