@@ -462,7 +462,7 @@ const DEFAULT_CATS = [
     'font-nm':"'Playfair Display', serif",'sz-nm':19,'op-nm':100,'x-nm':50,'y-nm':64,
     'txt-ct':'25 cl','lbl-ct':'Contenance','font-ct':"'Lato', sans-serif",'sz-ct':14,'sz-ctl':7,'op-ct':100,'x-ct':25,'y-ct':74,
     'txt-ca':'Verre','lbl-ca':'Catégorie','font-ca':"'Lato', sans-serif",'sz-ca':14,'sz-cal':7,'op-ca':100,'x-ca':75,'y-ca':74,
-    'txt-qt':'x 12','lbl-qt':'Qté par caisse','font-qt':"'Lato', sans-serif",'sz-qt':14,'col-qt-bg':'#1a1a18','col-qt-tx':'#F2F0EB','op-qt':100,'x-qt':50,'y-qt':88,
+    'txt-qt':'x 24','lbl-qt':'Qté par caisse','font-qt':"'Lato', sans-serif",'sz-qt':14,'col-qt-bg':'#1a1a18','col-qt-tx':'#F2F0EB','op-qt':100,'x-qt':50,'y-qt':88,
     'img-sz':100,'img-op':60,'img-x':50,'img-y':30,'img-ro':0
   }},
   {id:'assiette',name:'Assiette',icon:'🍽', orient:'h', defaults:{
@@ -1091,7 +1091,8 @@ async function confirmSave(){
   const name=g('save-name').value.trim()||gv('txt-nm')||'Étiquette';
   showLoading('Sauvegarde en cours...');
   const W=gn('dim-w'),H=gn('dim-h');
-  const tc=await buildCanvas(Math.round(W*2),Math.round(H*2));
+  const state=captureState();
+  const tc=await buildCanvasFromState(state, Math.round(W*2), Math.round(H*2));
   const thumb=tc.toDataURL('image/png',.8);
   const state=captureState();
   const id=editingId||'lbl_'+Date.now();
