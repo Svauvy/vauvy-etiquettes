@@ -545,11 +545,28 @@ async function getCats(){
   if(_catsCache)return _catsCache;
   let rows=await sbGet('categories');
   if(!rows||rows.length===0){
-    // Premier lancement : insérer les catégories par défaut
     for(const c of DEFAULT_CATS){
       await sbUpsert('categories',{id:c.id,name:c.name,icon:c.icon,orient:c.orient,defaults:c.defaults});
     }
     rows=DEFAULT_CATS.map(c=>({...c}));
+  } else {
+    // Mettre à jour les defaults des catégories par défaut sans écraser les catégories custom
+    for(const dc of DEFAULT_CATS){
+      const existing=rows.find(r=>r.id===dc.id);
+      if(existing){
+        // Fusionner : garder templateState/templateId mais mettre à jour les defaults
+        const updated={...existing,defaults:dc.defaults};
+        await sbUpsert('categories',{
+          id:updated.id,name:updated.name,icon:updated.icon||dc.icon,
+          orient:updated.orient||dc.orient,defaults:dc.defaults,
+          template_state:updated.template_state||null,
+          template_id:updated.template_id||null
+        });
+        // Mettre à jour dans rows
+        const idx=rows.findIndex(r=>r.id===dc.id);
+        if(idx>=0)rows[idx].defaults=dc.defaults;
+      }
+    }
   }
   _catsCache=rows.map(r=>({
     id:r.id,name:r.name,icon:r.icon,orient:r.orient,
@@ -1094,7 +1111,6 @@ async function confirmSave(){
   const state=captureState();
   const tc=await buildCanvasFromState(state, Math.round(W*2), Math.round(H*2));
   const thumb=tc.toDataURL('image/png',.8);
-  const state=captureState();
   const id=editingId||'lbl_'+Date.now();
   const lb={id,name,thumb,state,category:currentCat?currentCat.name:'',dims:`${gn('dim-w')}×${gn('dim-h')}mm`,savedAt:new Date().toISOString()};
   await saveLabel(lb);
@@ -1102,7 +1118,6 @@ async function confirmSave(){
   _labelsCache=null;
   closeModal('modal-save');
   hideLoading();
-  // Retourner directement à la catégorie
   await goCategory();
 }
 function captureState(){
