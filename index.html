@@ -1222,6 +1222,9 @@ async function buildCanvasFromState(state, cw, ch){
 
   return oc;
 }
+
+// CANVAS depuis le DOM (éditeur visible)
+async function buildCanvas(cw, ch, lcW_override, lcH_override){
   const oc=document.createElement('canvas');oc.width=cw;oc.height=ch;
   const ctx=oc.getContext('2d');
   const lc=g('lc');
