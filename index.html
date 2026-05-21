@@ -663,14 +663,34 @@ async function doPrint(){
   if(!printLabelData)return;
   document.getElementById('modal-print').classList.remove('open');
   showLoading('Génération en cours...');
-  // Sauvegarder l'état actuel de l'éditeur
+
+  const state=printLabelData.state;
+  if(!state){hideLoading();return;}
+
+  // Sauvegarder l'état actuel
   const savedState=captureState();
   const savedPhoto=photoDataURL;
-  // Charger l'état de l'étiquette à imprimer
-  loadState(printLabelData.state);
-  await new Promise(r=>setTimeout(r,150));
+
+  // Charger l'état de l'étiquette à imprimer dans les inputs
+  loadState(state);
+
+  // Forcer les dimensions dans le canvas de preview pour que gv/gn fonctionnent
+  const W=parseFloat(state['dim-w'])||62;
+  const H=parseFloat(state['dim-h'])||100;
+  const lc=g('lc');
+  const prevW=lc.style.width, prevH=lc.style.height;
+  const MM_PX=3.2;
+  lc.style.width=(W*MM_PX)+'px';
+  lc.style.height=(H*MM_PX)+'px';
+
+  // Attendre que le DOM se mette à jour
+  await new Promise(r=>setTimeout(r,200));
+
   await exportBrother();
+
   // Restaurer
+  lc.style.width=prevW;
+  lc.style.height=prevH;
   loadState(savedState);
   photoDataURL=savedPhoto;
   hideLoading();
