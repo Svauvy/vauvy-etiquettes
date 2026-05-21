@@ -1156,6 +1156,33 @@ async function buildCanvasFromState(state, cw, ch){
   const lcW=W*3.2, lcH=H*3.2;
   const sx=cw/lcW, sy=ch/lcH;
 
+  // Forcer le chargement des polices avant de dessiner
+  const fonts=[state['font-co'],state['font-nm'],state['font-ct'],state['font-ca'],state['font-qt']];
+  const uniqueFonts=[...new Set(fonts.filter(Boolean))];
+  await Promise.all(uniqueFonts.map(f=>{
+    const name=f.replace(/['"]/g,'').split(',')[0].trim();
+    return document.fonts.load(`bold 16px "${name}"`).catch(()=>{});
+  }));
+  await document.fonts.ready;
+
+  // Helper word-wrap : découpe le texte selon la largeur max du canvas
+  function wrapText(ctx, text, maxWidth){
+    const lines=[];
+    text.split('\n').forEach(paragraph=>{
+      const words=paragraph.split(' ');
+      let line='';
+      words.forEach(word=>{
+        const test=line?line+' '+word:word;
+        if(ctx.measureText(test).width>maxWidth && line){
+          lines.push(line);line=word;
+        } else { line=test; }
+      });
+      if(line)lines.push(line);
+    });
+    return lines.length?lines:[''];
+  }
+
+
   const oc=document.createElement('canvas');oc.width=cw;oc.height=ch;
   const ctx=oc.getContext('2d');
 
@@ -1195,9 +1222,11 @@ async function buildCanvasFromState(state, cw, ch){
   ctx.letterSpacing=(sn('ls-co')*sx)+'px';
   ctx.fillText(sv('txt-co'),sn('x-co')/100*lcW*sx,sn('y-co')/100*lcH*sy);ctx.restore();
 
-  // NOM — multi-ligne
-  const nmLines=(sv('txt-nm')||'').split('\n');
+  // NOM — multi-ligne avec word-wrap auto
   const nmFs=sn('sz-nm')*sx;
+  ctx.font=`bold ${nmFs}px ${sv('font-nm')}`;
+  const nmMaxW=lcW*0.85*sx;
+  const nmLines=wrapText(ctx, sv('txt-nm')||'', nmMaxW);
   const nmLineH=nmFs*1.25;
   const nmTotalH=(nmLines.length-1)*nmLineH;
   const nmCX=sn('x-nm')/100*lcW*sx;
@@ -1248,6 +1277,24 @@ async function buildCanvas(cw, ch, lcW_override, lcH_override){
   const lcH = lcH_override || lc.offsetHeight || (gn('dim-h')*3.2);
   const sx=cw/lcW, sy=ch/lcH;
   ctx.fillStyle=gv('col-bg');ctx.fillRect(0,0,cw,ch);
+
+  // Helper word-wrap : découpe le texte selon la largeur max du canvas
+  function wrapText(ctx, text, maxWidth){
+    const lines=[];
+    text.split('\n').forEach(paragraph=>{
+      const words=paragraph.split(' ');
+      let line='';
+      words.forEach(word=>{
+        const test=line?line+' '+word:word;
+        if(ctx.measureText(test).width>maxWidth && line){
+          lines.push(line);line=word;
+        } else { line=test; }
+      });
+      if(line)lines.push(line);
+    });
+    return lines.length?lines:[''];
+  }
+
   if(photoDataURL){
     await new Promise(res=>{
       const img=new Image();
@@ -1267,9 +1314,11 @@ async function buildCanvas(cw, ch, lcW_override, lcH_override){
   ctx.save();ctx.globalAlpha=gn('op-co')/100;ctx.fillStyle=gv('col-co');
   ctx.font=`bold ${gn('sz-co')*sx}px ${gv('font-co')}`;ctx.textAlign='center';ctx.textBaseline='middle';
   ctx.letterSpacing=(gn('ls-co')*sx)+'px';ctx.fillText(gv('txt-co'),gn('x-co')/100*lcW*sx,gn('y-co')/100*lcH*sy);ctx.restore();
-  // NOM — multi-ligne
-  const nmLines=gv('txt-nm').split('\n');
+  // NOM — multi-ligne avec word-wrap auto
   const nmFs=gn('sz-nm')*sx;
+  ctx.font=`bold ${nmFs}px ${gv('font-nm')}`;
+  const nmMaxW=lcW*0.85*sx;
+  const nmLines=wrapText(ctx, gv('txt-nm')||'', nmMaxW);
   const nmLineH=nmFs*1.25;
   const nmTotalH=(nmLines.length-1)*nmLineH;
   const nmCX=gn('x-nm')/100*lcW*sx;
