@@ -157,6 +157,7 @@ input[type=color]{width:28px;height:28px;border:1px solid #DDD;border-radius:5px
 #bg-img:hover{outline:1.5px dashed #B8860B;outline-offset:3px;}
 #bg-img:active{cursor:grabbing;}
 .lbl-el{position:absolute;z-index:2;pointer-events:all;white-space:nowrap;transform:translate(-50%,-50%);cursor:grab;user-select:none;}
+#el-nm{white-space:pre-wrap;text-align:center;max-width:90%;}
 .lbl-el:active{cursor:grabbing;}
 .lbl-el:hover{outline:1.5px dashed #B8860B;outline-offset:3px;}
 #el-qt{white-space:normal;text-align:center}
@@ -296,7 +297,7 @@ input[type=color]{width:28px;height:28px;border:1px solid #DDD;border-radius:5px
           <div class="fg">
             <lab>Nom du produit</lab>
             <div style="display:flex;gap:6px;align-items:center">
-              <input type="text" id="txt-nm" value="" oninput="render()" style="flex:1">
+              <textarea id="txt-nm" oninput="render()" style="flex:1;padding:6px 9px;border:1px solid #E5E2DC;border-radius:5px;font-family:'Lato',sans-serif;font-size:12px;color:#1a1a18;background:#FAFAF8;outline:none;resize:vertical;min-height:36px;max-height:80px;line-height:1.4"></textarea>
               <button class="adv-btn" onclick="toggleAdv('adv-nm')" title="Options avancées">⚙</button>
             </div>
           </div>
@@ -1021,8 +1022,13 @@ function render(){
   eco.style.color=gv('col-co');eco.style.letterSpacing=gn('ls-co')+'px';eco.style.fontWeight='700';eco.style.opacity=gn('op-co')/100;
   pos(eco,gn('x-co'),gn('y-co'));
   const enm=g('el-nm');
-  enm.textContent=gv('txt-nm');enm.style.fontFamily=gv('font-nm');enm.style.fontSize=gn('sz-nm')+'px';
-  enm.style.color=gv('col-nm');enm.style.fontWeight='700';enm.style.opacity=gn('op-nm')/100;
+  const nmText=gv('txt-nm');
+  // Gérer les retours à la ligne dans l'aperçu
+  enm.innerHTML=nmText.replace(/\n/g,'<br>');
+  enm.style.fontFamily=gv('font-nm');enm.style.fontSize=gn('sz-nm')+'px';
+  enm.style.color=gv('col-nm');enm.style.fontWeight='700';
+  enm.style.opacity=gn('op-nm')/100;enm.style.textAlign='center';
+  enm.style.whiteSpace='pre-wrap';enm.style.lineHeight='1.2';
   pos(enm,gn('x-nm'),gn('y-nm'));
   g('el-ct-lbl').textContent=gv('lbl-ct').toUpperCase();g('el-ct-val').textContent=gv('txt-ct');
   g('el-ct-lbl').style.fontSize=gn('sz-ctl')+'px';g('el-ct-lbl').style.color=gv('col-ct');
@@ -1134,7 +1140,17 @@ async function buildCanvas(cw,ch){
   ctx.save();ctx.globalAlpha=gn('op-co')/100;ctx.fillStyle=gv('col-co');
   ctx.font=`bold ${gn('sz-co')*sx}px ${gv('font-co')}`;ctx.textAlign='center';ctx.textBaseline='middle';
   ctx.letterSpacing=(gn('ls-co')*sx)+'px';ctx.fillText(gv('txt-co'),gn('x-co')/100*lcW*sx,gn('y-co')/100*lcH*sy);ctx.restore();
-  dEl(gv('txt-nm'),gn('x-nm'),gn('y-nm'),gn('sz-nm'),gv('col-nm'),gv('font-nm'),true,gn('op-nm')/100);
+  // NOM — multi-ligne
+  const nmLines=gv('txt-nm').split('\n');
+  const nmFs=gn('sz-nm')*sx;
+  const nmLineH=nmFs*1.25;
+  const nmTotalH=(nmLines.length-1)*nmLineH;
+  const nmCX=gn('x-nm')/100*lcW*sx;
+  const nmCY=gn('y-nm')/100*lcH*sy;
+  ctx.save();ctx.globalAlpha=gn('op-nm')/100;ctx.fillStyle=gv('col-nm');
+  ctx.font=`bold ${nmFs}px ${gv('font-nm')}`;ctx.textAlign='center';ctx.textBaseline='middle';
+  nmLines.forEach((line,i)=>ctx.fillText(line, nmCX, nmCY - nmTotalH/2 + i*nmLineH));
+  ctx.restore();
   const ctY=gn('y-ct')/100*lcH;
   dEl(gv('lbl-ct').toUpperCase(),gn('x-ct'),(ctY-gn('sz-ct')*.55)/lcH*100,gn('sz-ctl'),gv('col-ct'),gv('font-ct'),false,gn('op-ct')/100);
   dEl(gv('txt-ct'),gn('x-ct'),(ctY+gn('sz-ctl')*.55)/lcH*100,gn('sz-ct'),gv('col-ct'),gv('font-ct'),true,gn('op-ct')/100);
