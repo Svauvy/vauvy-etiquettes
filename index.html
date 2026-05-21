@@ -667,32 +667,59 @@ async function doPrint(){
   const state=printLabelData.state;
   if(!state){hideLoading();return;}
 
-  // Sauvegarder l'état actuel
-  const savedState=captureState();
-  const savedPhoto=photoDataURL;
+  // Charger l'état dans les inputs sans toucher au DOM visible
+  Object.entries(state).forEach(([id,v])=>{
+    if(id.startsWith('_'))return;
+    const el=g(id);if(el)el.value=v;
+  });
+  photoDataURL = state._photo || null;
 
-  // Charger l'état de l'étiquette à imprimer dans les inputs
-  loadState(state);
-
-  // Forcer les dimensions dans le canvas de preview pour que gv/gn fonctionnent
+  // Dimensions du canvas preview simulées (MM × 3.2px/mm)
   const W=parseFloat(state['dim-w'])||62;
   const H=parseFloat(state['dim-h'])||100;
-  const lc=g('lc');
-  const prevW=lc.style.width, prevH=lc.style.height;
   const MM_PX=3.2;
-  lc.style.width=(W*MM_PX)+'px';
-  lc.style.height=(H*MM_PX)+'px';
+  const lcW=W*MM_PX, lcH=H*MM_PX;
 
-  // Attendre que le DOM se mette à jour
-  await new Promise(r=>setTimeout(r,200));
+  // Générer directement avec les dimensions connues
+  const SC=300/25.4;
+  const pxW=Math.round(W*SC), pxH=Math.round(H*SC);
+  const colorCanvas=await buildCanvas(pxW, pxH, lcW, lcH);
 
-  await exportBrother();
+  // Conversion N&B dithering
+  const bw=document.createElement('canvas');
+  bw.width=pxW;bw.height=pxH;
+  const bx=bw.getContext('2d');
+  bx.fillStyle='#fff';bx.fillRect(0,0,pxW,pxH);
+  bx.drawImage(colorCanvas,0,0);
+  const id2=bx.getImageData(0,0,pxW,pxH),d=id2.data;
+  const gray=new Float32Array(pxW*pxH);
+  for(let i=0;i<pxW*pxH;i++){
+    const r=d[i*4],gg=d[i*4+1],b=d[i*4+2],a=d[i*4+3]/255;
+    gray[i]=(0.299*r+0.587*gg+0.114*b)*a+255*(1-a);
+  }
+  for(let y=0;y<pxH;y++){
+    for(let x=0;x<pxW;x++){
+      const idx=y*pxW+x;
+      const old=gray[idx],nw=old<180?0:255,err=old-nw;
+      gray[idx]=nw;
+      if(x+1<pxW) gray[idx+1]+=err*7/16;
+      if(y+1<pxH){
+        if(x>0) gray[idx+pxW-1]+=err*3/16;
+        gray[idx+pxW]+=err*5/16;
+        if(x+1<pxW) gray[idx+pxW+1]+=err*1/16;
+      }
+    }
+  }
+  for(let i=0;i<pxW*pxH;i++){
+    const v=gray[i]<128?0:255;
+    d[i*4]=d[i*4+1]=d[i*4+2]=v;d[i*4+3]=255;
+  }
+  bx.putImageData(id2,0,0);
+  const a=document.createElement('a');
+  a.download=`etiquette_${(state['txt-nm']||'produit').replace(/[\s\n]+/g,'_').toLowerCase()}_brother.png`;
+  a.href=bw.toDataURL('image/png',1);
+  a.click();
 
-  // Restaurer
-  lc.style.width=prevW;
-  lc.style.height=prevH;
-  loadState(savedState);
-  photoDataURL=savedPhoto;
   hideLoading();
 }
 function toggleAdv(id){
@@ -1134,12 +1161,14 @@ function resetEditor(){
   updDims();
 }
 
-// CANVAS
-async function buildCanvas(cw,ch){
+// CANVAS — lcW et lcH optionnels, sinon lus depuis le DOM
+async function buildCanvas(cw, ch, lcW_override, lcH_override){
   const oc=document.createElement('canvas');oc.width=cw;oc.height=ch;
   const ctx=oc.getContext('2d');
-  const lc=g('lc'),lcW=lc.offsetWidth,lcH=lc.offsetHeight;
-  const sx=cw/lcW,sy=ch/lcH;
+  const lc=g('lc');
+  const lcW = lcW_override || lc.offsetWidth  || (gn('dim-w')*3.2);
+  const lcH = lcH_override || lc.offsetHeight || (gn('dim-h')*3.2);
+  const sx=cw/lcW, sy=ch/lcH;
   ctx.fillStyle=gv('col-bg');ctx.fillRect(0,0,cw,ch);
   if(photoDataURL){
     await new Promise(res=>{
