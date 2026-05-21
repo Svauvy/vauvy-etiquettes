@@ -663,63 +663,35 @@ async function doPrint(){
   if(!printLabelData)return;
   document.getElementById('modal-print').classList.remove('open');
   showLoading('Génération en cours...');
-
   const state=printLabelData.state;
   if(!state){hideLoading();return;}
-
-  // Charger l'état dans les inputs sans toucher au DOM visible
-  Object.entries(state).forEach(([id,v])=>{
-    if(id.startsWith('_'))return;
-    const el=g(id);if(el)el.value=v;
-  });
-  photoDataURL = state._photo || null;
-
-  // Dimensions du canvas preview simulées (MM × 3.2px/mm)
   const W=parseFloat(state['dim-w'])||62;
   const H=parseFloat(state['dim-h'])||100;
-  const MM_PX=3.2;
-  const lcW=W*MM_PX, lcH=H*MM_PX;
-
-  // Générer directement avec les dimensions connues
   const SC=300/25.4;
   const pxW=Math.round(W*SC), pxH=Math.round(H*SC);
-  const colorCanvas=await buildCanvas(pxW, pxH, lcW, lcH);
-
-  // Conversion N&B dithering
-  const bw=document.createElement('canvas');
-  bw.width=pxW;bw.height=pxH;
+  // Utiliser buildCanvasFromState — ne touche pas au DOM
+  const colorCanvas=await buildCanvasFromState(state, pxW, pxH);
+  // Dithering N&B
+  const bw=document.createElement('canvas');bw.width=pxW;bw.height=pxH;
   const bx=bw.getContext('2d');
-  bx.fillStyle='#fff';bx.fillRect(0,0,pxW,pxH);
-  bx.drawImage(colorCanvas,0,0);
+  bx.fillStyle='#fff';bx.fillRect(0,0,pxW,pxH);bx.drawImage(colorCanvas,0,0);
   const id2=bx.getImageData(0,0,pxW,pxH),d=id2.data;
   const gray=new Float32Array(pxW*pxH);
   for(let i=0;i<pxW*pxH;i++){
     const r=d[i*4],gg=d[i*4+1],b=d[i*4+2],a=d[i*4+3]/255;
     gray[i]=(0.299*r+0.587*gg+0.114*b)*a+255*(1-a);
   }
-  for(let y=0;y<pxH;y++){
-    for(let x=0;x<pxW;x++){
-      const idx=y*pxW+x;
-      const old=gray[idx],nw=old<180?0:255,err=old-nw;
-      gray[idx]=nw;
-      if(x+1<pxW) gray[idx+1]+=err*7/16;
-      if(y+1<pxH){
-        if(x>0) gray[idx+pxW-1]+=err*3/16;
-        gray[idx+pxW]+=err*5/16;
-        if(x+1<pxW) gray[idx+pxW+1]+=err*1/16;
-      }
-    }
-  }
-  for(let i=0;i<pxW*pxH;i++){
-    const v=gray[i]<128?0:255;
-    d[i*4]=d[i*4+1]=d[i*4+2]=v;d[i*4+3]=255;
-  }
+  for(let y=0;y<pxH;y++){for(let x=0;x<pxW;x++){
+    const idx=y*pxW+x,old=gray[idx],nw=old<180?0:255,err=old-nw;
+    gray[idx]=nw;
+    if(x+1<pxW)gray[idx+1]+=err*7/16;
+    if(y+1<pxH){if(x>0)gray[idx+pxW-1]+=err*3/16;gray[idx+pxW]+=err*5/16;if(x+1<pxW)gray[idx+pxW+1]+=err*1/16;}
+  }}
+  for(let i=0;i<pxW*pxH;i++){const v=gray[i]<128?0:255;d[i*4]=d[i*4+1]=d[i*4+2]=v;d[i*4+3]=255;}
   bx.putImageData(id2,0,0);
   const a=document.createElement('a');
   a.download=`etiquette_${(state['txt-nm']||'produit').replace(/[\s\n]+/g,'_').toLowerCase()}_brother.png`;
-  a.href=bw.toDataURL('image/png',1);
-  a.click();
-
+  a.href=bw.toDataURL('image/png',1);a.click();
   hideLoading();
 }
 function toggleAdv(id){
@@ -1161,8 +1133,95 @@ function resetEditor(){
   updDims();
 }
 
-// CANVAS — lcW et lcH optionnels, sinon lus depuis le DOM
-async function buildCanvas(cw, ch, lcW_override, lcH_override){
+// CANVAS depuis un objet state (pour impression sans passer par le DOM)
+async function buildCanvasFromState(state, cw, ch){
+  const W=parseFloat(state['dim-w'])||62;
+  const H=parseFloat(state['dim-h'])||100;
+  const lcW=W*3.2, lcH=H*3.2;
+  const sx=cw/lcW, sy=ch/lcH;
+
+  const oc=document.createElement('canvas');oc.width=cw;oc.height=ch;
+  const ctx=oc.getContext('2d');
+
+  const sv = id => (state[id]!==undefined ? String(state[id]) : '');
+  const sn = id => parseFloat(state[id])||0;
+
+  ctx.fillStyle=sv('col-bg')||'#ffffff';
+  ctx.fillRect(0,0,cw,ch);
+
+  // Photo
+  const photo=state._photo||null;
+  if(photo){
+    await new Promise(res=>{
+      const img=new Image();
+      img.onload=()=>{
+        const sz=sn('img-sz')/100*Math.min(lcW,lcH);
+        const px=sn('img-x')/100*lcW, py=sn('img-y')/100*lcH;
+        ctx.save();ctx.globalAlpha=sn('img-op')/100;
+        ctx.translate(px*sx,py*sy);ctx.rotate(sn('img-ro')*Math.PI/180);
+        ctx.drawImage(img,-sz*sx/2,-sz*sy/2,sz*sx,sz*sy);ctx.restore();res();
+      };img.onerror=res;img.src=photo;
+    });
+  }
+
+  function dEl(t,xP,yP,fs,col,fnt,bold=true,op=1){
+    if(!t)return;
+    ctx.save();ctx.globalAlpha=op;ctx.fillStyle=col;
+    ctx.font=`${bold?'bold ':' '}${fs*sx}px ${fnt}`;
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(t,xP/100*lcW*sx,yP/100*lcH*sy);ctx.restore();
+  }
+
+  // MAISON VAUVY
+  ctx.save();ctx.globalAlpha=sn('op-co')/100;ctx.fillStyle=sv('col-co');
+  ctx.font=`bold ${sn('sz-co')*sx}px ${sv('font-co')}`;
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.letterSpacing=(sn('ls-co')*sx)+'px';
+  ctx.fillText(sv('txt-co'),sn('x-co')/100*lcW*sx,sn('y-co')/100*lcH*sy);ctx.restore();
+
+  // NOM — multi-ligne
+  const nmLines=(sv('txt-nm')||'').split('\n');
+  const nmFs=sn('sz-nm')*sx;
+  const nmLineH=nmFs*1.25;
+  const nmTotalH=(nmLines.length-1)*nmLineH;
+  const nmCX=sn('x-nm')/100*lcW*sx;
+  const nmCY=sn('y-nm')/100*lcH*sy;
+  ctx.save();ctx.globalAlpha=sn('op-nm')/100;ctx.fillStyle=sv('col-nm');
+  ctx.font=`bold ${nmFs}px ${sv('font-nm')}`;ctx.textAlign='center';ctx.textBaseline='middle';
+  nmLines.forEach((line,i)=>ctx.fillText(line,nmCX,nmCY-nmTotalH/2+i*nmLineH));
+  ctx.restore();
+
+  // CONTENANCE
+  const ctY=sn('y-ct')/100*lcH;
+  dEl(sv('lbl-ct').toUpperCase(),sn('x-ct'),(ctY-sn('sz-ct')*.55)/lcH*100,sn('sz-ctl'),sv('col-ct'),sv('font-ct'),false,sn('op-ct')/100);
+  dEl(sv('txt-ct'),sn('x-ct'),(ctY+sn('sz-ctl')*.55)/lcH*100,sn('sz-ct'),sv('col-ct'),sv('font-ct'),true,sn('op-ct')/100);
+
+  // CATÉGORIE
+  const caY=sn('y-ca')/100*lcH;
+  dEl(sv('lbl-ca').toUpperCase(),sn('x-ca'),(caY-sn('sz-ca')*.55)/lcH*100,sn('sz-cal'),sv('col-ca'),sv('font-ca'),false,sn('op-ca')/100);
+  dEl(sv('txt-ca'),sn('x-ca'),(caY+sn('sz-cal')*.55)/lcH*100,sn('sz-ca'),sv('col-ca'),sv('font-ca'),true,sn('op-ca')/100);
+
+  // QUANTITÉ + BADGE
+  const qtX=sn('x-qt')/100*lcW*sx,qtY=sn('y-qt')/100*lcH*sy,qtFs=sn('sz-qt')*sx,qtOp=sn('op-qt')/100;
+  ctx.save();ctx.globalAlpha=qtOp*.7;ctx.fillStyle=sv('col-qt-bg');
+  ctx.font=`${7*sx}px ${sv('font-qt')}`;ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText(sv('lbl-qt').toUpperCase(),qtX,qtY-qtFs*.85);ctx.restore();
+  ctx.font=`bold ${qtFs}px ${sv('font-qt')}`;
+  const txtW=ctx.measureText(sv('txt-qt')).width;
+  const bPadX=qtFs*0.8,bPadY=qtFs*0.2;
+  const bw2=txtW+bPadX*2,bh2=qtFs+bPadY*2,br2=4*sx,bx2=qtX-bw2/2,by2=qtY-bh2/2+qtFs*.2;
+  ctx.save();ctx.globalAlpha=qtOp;ctx.fillStyle=sv('col-qt-bg');ctx.beginPath();
+  ctx.moveTo(bx2+br2,by2);ctx.lineTo(bx2+bw2-br2,by2);ctx.quadraticCurveTo(bx2+bw2,by2,bx2+bw2,by2+br2);
+  ctx.lineTo(bx2+bw2,by2+bh2-br2);ctx.quadraticCurveTo(bx2+bw2,by2+bh2,bx2+bw2-br2,by2+bh2);
+  ctx.lineTo(bx2+br2,by2+bh2);ctx.quadraticCurveTo(bx2,by2+bh2,bx2,by2+bh2-br2);
+  ctx.lineTo(bx2,by2+br2);ctx.quadraticCurveTo(bx2,by2,bx2+br2,by2);
+  ctx.closePath();ctx.fill();ctx.restore();
+  ctx.save();ctx.globalAlpha=qtOp;ctx.fillStyle=sv('col-qt-tx');
+  ctx.font=`bold ${qtFs}px ${sv('font-qt')}`;ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText(sv('txt-qt'),qtX,by2+bh2/2);ctx.restore();
+
+  return oc;
+}
   const oc=document.createElement('canvas');oc.width=cw;oc.height=ch;
   const ctx=oc.getContext('2d');
   const lc=g('lc');
