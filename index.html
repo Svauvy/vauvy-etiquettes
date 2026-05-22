@@ -693,19 +693,21 @@ async function doPrint(){
   hideLoading();
 
   const imgData=colorCanvas.toDataURL('image/png',1.0);
+  const nm=(state['txt-nm']||'etiquette').replace(/[\s\n]+/g,'_').toLowerCase();
 
-  // Créer une page dédiée avec uniquement l'étiquette
+  // Ouvrir une page dédiée avec uniquement l'étiquette
   const html=`<!DOCTYPE html>
-<html>
-<head>
+<html><head>
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${nm}</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
-html,body{width:${W}mm;height:${H}mm;background:#fff;}
+html,body{width:${W}mm;height:${H}mm;background:#fff;overflow:hidden;}
 img{width:${W}mm;height:${H}mm;display:block;}
 @page{size:${W}mm ${H}mm;margin:0;}
 @media print{
-  html,body{width:${W}mm;height:${H}mm;}
+  *{margin:0;padding:0;}
+  html,body{width:${W}mm;height:${H}mm;overflow:hidden;}
   img{width:${W}mm;height:${H}mm;}
 }
 </style>
@@ -714,11 +716,10 @@ img{width:${W}mm;height:${H}mm;display:block;}
 <img src="${imgData}">
 <script>
 window.addEventListener('load',function(){
-  setTimeout(function(){window.print();},400);
+  setTimeout(function(){window.print();},500);
 });
 <\/script>
-</body>
-</html>`;
+</body></html>`;
 
   const blob=new Blob([html],{type:'text/html'});
   const url=URL.createObjectURL(blob);
