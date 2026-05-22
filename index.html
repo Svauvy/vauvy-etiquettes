@@ -698,8 +698,8 @@ async function doPrint(){
   // Dimensions en pixels à 300dpi pour forcer la bonne coupe
   const DPI=300;
   const MM_TO_IN=1/25.4;
-  const wPx=Math.round(W*MM_TO_IN*DPI); // 62mm = 732px
-  const hPx=Math.round(H*MM_TO_IN*DPI); // 100mm = 1181px
+  const wPx=Math.round(W*MM_TO_IN*DPI);
+  const hPx=Math.round(H*MM_TO_IN*DPI)-2; // -2px pour éviter la page 2
 
   const html=`<!DOCTYPE html>
 <html><head>
