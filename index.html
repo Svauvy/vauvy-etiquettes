@@ -692,57 +692,37 @@ async function doPrint(){
   const colorCanvas=await buildCanvasFromState(state, pxW, pxH);
   hideLoading();
 
-  // Dithering N&B pour Brother
-  const bw=document.createElement('canvas');
-  bw.width=pxW;bw.height=pxH;
-  const bx=bw.getContext('2d');
-  bx.fillStyle='#fff';bx.fillRect(0,0,pxW,pxH);bx.drawImage(colorCanvas,0,0);
-  const id2=bx.getImageData(0,0,pxW,pxH),d=id2.data;
-  const gray=new Float32Array(pxW*pxH);
-  for(let i=0;i<pxW*pxH;i++){
-    const r=d[i*4],gg=d[i*4+1],b=d[i*4+2],a=d[i*4+3]/255;
-    gray[i]=(0.299*r+0.587*gg+0.114*b)*a+255*(1-a);
-  }
-  for(let y=0;y<pxH;y++){for(let x=0;x<pxW;x++){
-    const idx=y*pxW+x,old=gray[idx],nw=old<180?0:255,err=old-nw;
-    gray[idx]=nw;
-    if(x+1<pxW)gray[idx+1]+=err*7/16;
-    if(y+1<pxH){if(x>0)gray[idx+pxW-1]+=err*3/16;gray[idx+pxW]+=err*5/16;if(x+1<pxW)gray[idx+pxW+1]+=err*1/16;}
-  }}
-  for(let i=0;i<pxW*pxH;i++){const v=gray[i]<128?0:255;d[i*4]=d[i*4+1]=d[i*4+2]=v;d[i*4+3]=255;}
-  bx.putImageData(id2,0,0);
+  const imgData=colorCanvas.toDataURL('image/png',1.0);
 
-  const isMobile=/iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  // Créer une page dédiée avec uniquement l'étiquette
+  const html=`<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{width:${W}mm;height:${H}mm;background:#fff;}
+img{width:${W}mm;height:${H}mm;display:block;}
+@page{size:${W}mm ${H}mm;margin:0;}
+@media print{
+  html,body{width:${W}mm;height:${H}mm;}
+  img{width:${W}mm;height:${H}mm;}
+}
+</style>
+</head>
+<body>
+<img src="${imgData}">
+<script>
+window.addEventListener('load',function(){
+  setTimeout(function(){window.print();},400);
+});
+<\/script>
+</body>
+</html>`;
 
-  if(isMobile){
-    // iOS : impression AirPrint via iframe
-    const imgData=bw.toDataURL('image/png',1.0);
-    const old=document.getElementById('print-iframe');
-    if(old)old.remove();
-    const iframe=document.createElement('iframe');
-    iframe.id='print-iframe';
-    iframe.style.cssText='position:fixed;top:0;left:0;width:0;height:0;border:none;visibility:hidden;';
-    document.body.appendChild(iframe);
-    const iframeDoc=iframe.contentDocument||iframe.contentWindow.document;
-    iframeDoc.open();
-    iframeDoc.write(`<!DOCTYPE html><html><head><style>
-      *{margin:0;padding:0;box-sizing:border-box;}
-      html,body{width:${W}mm;height:${H}mm;}
-      img{width:${W}mm;height:${H}mm;display:block;}
-      @page{size:${W}mm ${H}mm;margin:0;}
-    </style></head><body><img src="${imgData}"></body></html>`);
-    iframeDoc.close();
-    iframe.onload=function(){
-      setTimeout(function(){ iframe.contentWindow.focus(); iframe.contentWindow.print(); },500);
-    };
-  } else {
-    // PC : télécharger PNG optimisé Brother
-    const a=document.createElement('a');
-    const nm=(state['txt-nm']||'etiquette').replace(/[\s\n]+/g,'_').toLowerCase();
-    a.download=`${nm}_${W}x${H}mm_300dpi.png`;
-    a.href=bw.toDataURL('image/png',1.0);
-    a.click();
-  }
+  const blob=new Blob([html],{type:'text/html'});
+  const url=URL.createObjectURL(blob);
+  window.open(url,'_blank');
 }
 function toggleAdv(id){
   const panel=document.getElementById(id);
