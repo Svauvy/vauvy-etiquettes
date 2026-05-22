@@ -700,15 +700,15 @@ async function doPrint(){
   printWin.document.write(`<!DOCTYPE html>
 <html>
 <head>
-<title>Impression — ${state['txt-nm']||'Étiquette'}</title>
+<title>Impression</title>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
-  body { background:#fff; display:flex; align-items:center; justify-content:center; min-height:100vh; }
-  img { width:${W}mm; height:${H}mm; display:block; }
+  html, body { width:${W}mm; height:${H}mm; overflow:hidden; background:#fff; }
+  img { width:${W}mm; height:${H}mm; display:block; page-break-after:avoid; }
+  @page { size:${W}mm ${H}mm; margin:0; }
   @media print {
-    body { margin:0; }
+    html, body { width:${W}mm; height:${H}mm; overflow:hidden; }
     img { width:${W}mm; height:${H}mm; }
-    @page { size:${W}mm ${H}mm; margin:0; }
   }
 </style>
 </head>
@@ -719,7 +719,7 @@ async function doPrint(){
     setTimeout(function(){
       window.print();
       setTimeout(function(){ window.close(); }, 1000);
-    }, 300);
+    }, 500);
   };
 <\/script>
 </body>
